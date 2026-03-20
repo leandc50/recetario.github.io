@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CostApp Pro - Gestión de Recetas</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --primary-dark: #1e293b;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --white: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+        }
+
+        nav {
+            background: var(--primary-dark);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 5px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 8px;
+            transition: 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .tab-btn.active {
+            color: var(--white);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .section-content {
+            display: none;
+            max-width: 1000px;
+            margin: 25px auto;
+            padding: 0 15px;
+        }
+
+        .section-content.active {
+            display: block;
+        }
+
+        .app-card {
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.06);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        header {
+            background-color: #f1f5f9;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary-dark);
+        }
+
+        .panel { padding: 20px; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        .form-group { margin-bottom: 15px; position: relative; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; }
+        input, select {
+            width: 100%; padding: 12px; border: 1.5px solid var(--border);
+            border-radius: 8px; box-sizing: border-box; font-size: 1rem; outline: none;
+            background: white;
+        }
+        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #fff;
+            border-bottom: 1px solid #f1f5f9;
+            gap: 10px;
+        }
+
+        .search-results {
+            position: absolute; width: 100%; background: white;
+            border: 1px solid var(--border); border-radius: 8px;
+            z-index: 100; max-height: 200px; overflow-y: auto; display: none;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        .search-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+        .search-item:hover { background: #f0f7ff; color: var(--accent); }
+
+        .table-container {
+            width: 100%; overflow-x: auto; margin-top: 20px;
+            border: 1px solid var(--border); border-radius: 8px;
+        }
+
+        .excel-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        .excel-table th { background: #f8fafc; text-align: left; padding: 12px; border: 1px solid var(--border); font-size: 0.8rem; }
+        .excel-table td { padding: 12px; border: 1px solid var(--border); font-size: 0.9rem; }
+
+        .btn {
+            cursor: pointer; border: none; border-radius: 8px; font-weight: 600;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;
+        }
+        .btn-primary { background: var(--accent); color: white; padding: 12px 20px; }
+        .btn-success { background: var(--success); color: white; padding: 15px; width: 100%; margin-top: 20px; }
+        .btn-icon { padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+
+        .recipe-card-saved {
+            padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+        }
+
+        #modal-escalar, #modal-lectura {
+            display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+            background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:15px;
+        }
+
+        .cost-summary {
+            margin-top: 20px;
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #bae6fd;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .reading-mode-content {
+            background: white;
+            width: 100%;
+            height: 100vh;
+            max-width: 100%;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .reading-header-sticky {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding-bottom: 10px;
+            z-index: 10;
+            border-bottom: 2px solid var(--primary-dark);
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 800px) { 
+            .grid-layout { grid-template-columns: 1fr; }
+            .tab-btn span { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <button class="tab-btn active" onclick="showSection('sec-ingredientes', this)">
+        <i data-lucide="egg"></i> <span>Ingredientes</span>
+    </button>
+    <button class="tab-btn" onclick="showSection('sec-recetario', this)">
+        <i data-lucide="book-open"></i> <span>Recetario</span>
+    </button>
+    <button class="tab-btn" onclick="showSection('sec-archivo', this)">
+        <i data-lucide="archive"></i> <span>Mis Recetas</span>
+    </button>
+    <button class="tab-btn" onclick="showSection('sec-respaldo', this)">
+        <i data-lucide="database"></i> <span>Respaldo</span>
+    </button>
+</nav>
+
+<div id="sec-ingredientes" class="section-content active">
+    <div class="app-card">
+        <header><h2>1. Base de Insumos</h2></header>
+        <div class="panel grid-layout">
+            <section>
+                <h3>Registrar / Editar</h3>
+                <div class="form-group">
+                    <label>Nombre del Ingrediente</label>
+                    <input type="text" id="ing-name" placeholder="Ej: Harina 0000">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group"><label>Precio Compra ($)</label><input type="number" id="ing-price"></div>
+                    <div class="form-group"><label>Cantidad (Kg/G)</label><input type="number" id="ing-qty"></div>
+                </div>
+                <div class="form-group"><label>Merma (%)</label><input type="number" id="ing-waste" value="0"></div>
+                <button class="btn btn-primary" id="btn-save-ing" style="width:100%" onclick="saveIngredient()">
+                    <i data-lucide="save"></i> Guardar Ingrediente
+                </button>
+            </section>
+            <section>
+                <h3>Mis Ingredientes</h3>
+                <div id="ingredient-list" style="border: 1px solid var(--border); border-radius: 10px; max-height: 400px; overflow-y: auto;"></div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<div id="sec-recetario" class="section-content">
+    <div class="app-card">
+        <header><h2>2. Nueva Receta</h2></header>
+        <div class="panel">
+            <div class="form-group">
+                <label>Nombre de la Receta</label>
+                <input type="text" id="recipe-name" placeholder="Ej: Pan Casero">
+            </div>
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label>Buscar Ingrediente</label>
+                    <input type="text" id="search-ing" oninput="searchIngredient()" placeholder="Escribe para buscar...">
+                    <div id="search-results" class="search-results"></div>
+                </div>
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Peso a usar (Neto)</label>
+                        <input type="number" id="use-qty" placeholder="0.000">
+                    </div>
+                    <button class="btn btn-primary" onclick="addIngToRecipe()" style="height: 45px;">
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th>Ingrediente</th>
+                            <th>Peso (Neto)</th>
+                            <th>Costo ($)</th>
+                            <th>Compra (Bruto)</th>
+                            <th style="text-align:center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recipe-table-body"></tbody>
+                </table>
+            </div>
+            
+            <div id="recipe-cost-summary" class="cost-summary" style="display:none;">
+                <div><small>Costo Total Lote</small><br><strong id="total-batch-cost">$0.00</strong></div>
+                <div><small>Peso Total</small><br><strong id="total-batch-weight">0.000 kg</strong></div>
+                <div><small>Costo por KG</small><br><strong id="cost-per-kg" style="color:var(--accent)">$0.00</strong></div>
+            </div>
+
+            <button class="btn btn-success" onclick="saveFullRecipe()">
+                <i data-lucide="check-circle"></i> GUARDAR RECETA FINAL
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="sec-archivo" class="section-content">
+    <div class="app-card">
+        <header>
+            <h2>3. Mis Recetas Guardadas</h2>
+            <div style="margin-left: auto; width: 200px;">
+                <input type="text" id="search-archive" oninput="filterArchive()" placeholder="Buscar receta..." style="padding: 8px; font-size: 0.8rem;">
+            </div>
+        </header>
+        <div class="panel" id="saved-recipes-container"></div>
+    </div>
+</div>
+
+<div id="sec-respaldo" class="section-content">
+    <div class="app-card">
+        <header><h2>4. Gestión de Datos</h2></header>
+        <div class="panel grid-layout">
+            <div style="text-align: center; border: 1px solid var(--border); padding: 20px; border-radius: 12px;">
+                <i data-lucide="download" size="32"></i>
+                <h3>Exportar</h3>
+                <button class="btn btn-primary" onclick="exportData()" style="width: 100%;">Descargar Backup</button>
+            </div>
+            <div style="text-align: center; border: 1px solid var(--border); padding: 20px; border-radius: 12px;">
+                <i data-lucide="upload" size="32"></i>
+                <h3>Importar</h3>
+                <input type="file" id="import-file" style="display: none;" onchange="importData(event)">
+                <button class="btn" onclick="document.getElementById('import-file').click()" style="width: 100%; background: #f1f5f9;">Subir Archivo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modal-escalar">
+    <div class="app-card" style="width:100%; max-width:500px;">
+        <header>
+            <h2 id="modal-title">Escalar Receta</h2>
+            <button onclick="closeScaleModal()" class="btn" style="margin-left:auto; background:none; color:var(--danger)"><i data-lucide="x"></i></button>
+        </header>
+        <div class="panel">
+            <div class="form-group">
+                <label>Método de Escalado</label>
+                <select id="scale-method" onchange="toggleScaleInputs()">
+                    <option value="total">Por Peso Total (KG finales)</option>
+                    <option value="ingrediente">Por Ingrediente específico</option>
+                </select>
+            </div>
+            <div id="div-scale-total" class="form-group">
+                <label>¿Cuántos KG totales quieres producir?</label>
+                <input type="number" id="input-scale-total" placeholder="Ej: 5.000">
+            </div>
+            <div id="div-scale-ing" class="form-group" style="display:none;">
+                <label>Selecciona Ingrediente</label>
+                <select id="select-scale-ing"></select>
+                <label>Cantidad que tienes (KG Netos)</label>
+                <input type="number" id="input-scale-ing-val" placeholder="Ej: 0.500">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="calculateScale()">Calcular</button>
+            
+            <div id="scale-results" style="margin-top:20px; display:none;">
+                <div id="scale-results-list" style="margin-bottom:15px; font-size:0.9rem;"></div>
+                <button class="btn btn-success" style="width:100%" onclick="openReadingMode()">
+                    <i data-lucide="eye"></i> MODO LECTURA
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modal-lectura">
+    <div class="reading-mode-content" id="read-modal-main">
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+    let ingredients = JSON.parse(localStorage.getItem('ingredientes')) || []; 
+    let savedRecipes = JSON.parse(localStorage.getItem('recetas')) || [];
+    let currentRecipeItems = []; 
+    let selectedIng = null;
+    let editIndexIng = -1;
+    let editingRecipeId = null;
+    let activeRecipeToScale = null;
+    let scaledData = null;
+
+    window.onload = () => { renderIngList(); renderSavedRecipes(); };
+
+    function showSection(sectionId, btn) {
+        document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(sectionId).classList.add('active');
+        btn.classList.add('active');
+        if(sectionId === 'sec-archivo') renderSavedRecipes();
+    }
+
+    // --- LOGICA INGREDIENTES ---
+    function saveIngredient() {
+        const name = document.getElementById('ing-name').value;
+        const price = parseFloat(document.getElementById('ing-price').value);
+        const qty = parseFloat(document.getElementById('ing-qty').value);
+        const waste = parseFloat(document.getElementById('ing-waste').value) || 0;
+        if(!name || isNaN(price) || isNaN(qty)) return alert("Completa los datos");
+        const data = { name, price, qty, waste };
+        if (editIndexIng === -1) ingredients.push(data);
+        else { ingredients[editIndexIng] = data; editIndexIng = -1; document.getElementById('btn-save-ing').innerHTML = '<i data-lucide="save"></i> Guardar Ingrediente'; }
+        localStorage.setItem('ingredientes', JSON.stringify(ingredients));
+        clearIngForm(); renderIngList(); renderSavedRecipes(); 
+    }
+
+    function renderIngList() {
+        const list = document.getElementById('ingredient-list');
+        list.innerHTML = ingredients.map((ing, i) => `
+            <div class="list-item">
+                <div><strong>${ing.name}</strong><br><small>$${ing.price} x ${ing.qty} unit.</small></div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="editIngredient(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="16"></i></button>
+                    <button onclick="deleteIngredient(${i})" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="trash-2" size="16"></i></button>
+                </div>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+
+    function editIngredient(i) {
+        const ing = ingredients[i];
+        document.getElementById('ing-name').value = ing.name;
+        document.getElementById('ing-price').value = ing.price;
+        document.getElementById('ing-qty').value = ing.qty;
+        document.getElementById('ing-waste').value = ing.waste;
+        editIndexIng = i;
+        document.getElementById('btn-save-ing').innerHTML = 'Actualizar Insumo';
+    }
+
+    function deleteIngredient(i) { if(confirm("¿Eliminar?")) { ingredients.splice(i,1); localStorage.setItem('ingredientes', JSON.stringify(ingredients)); renderIngList(); renderSavedRecipes(); } }
+    function clearIngForm() { document.getElementById('ing-name').value=''; document.getElementById('ing-price').value=''; document.getElementById('ing-qty').value=''; document.getElementById('ing-waste').value='0'; }
+
+    // --- LOGICA RECETARIO ---
+    function searchIngredient() {
+        const query = document.getElementById('search-ing').value.toLowerCase();
+        const resultsDiv = document.getElementById('search-results');
+        if(query.length < 1) { resultsDiv.style.display = 'none'; return; }
+        const filtered = ingredients.filter(ing => ing.name.toLowerCase().includes(query));
+        resultsDiv.innerHTML = filtered.map(ing => `<div class="search-item" onclick="selectIng('${ing.name}')">${ing.name}</div>`).join('');
+        resultsDiv.style.display = filtered.length ? 'block' : 'none';
+    }
+
+    function selectIng(name) {
+        selectedIng = ingredients.find(ing => ing.name === name);
+        document.getElementById('search-ing').value = name;
+        document.getElementById('search-results').style.display = 'none';
+        document.getElementById('use-qty').focus();
+    }
+
+    function addIngToRecipe() {
+        const useQty = parseFloat(document.getElementById('use-qty').value);
+        if(!selectedIng || !useQty) return alert("Selecciona ingrediente y peso");
+        const gross = useQty / (1 - (selectedIng.waste / 100));
+        currentRecipeItems.push({ name: selectedIng.name, net: useQty, gross: gross.toFixed(3) });
+        renderRecipeTable();
+        document.getElementById('search-ing').value = ''; document.getElementById('use-qty').value = ''; selectedIng = null;
+    }
+
+    function renderRecipeTable() {
+        const tbody = document.getElementById('recipe-table-body');
+        let tCost = 0, tWeight = 0;
+        tbody.innerHTML = currentRecipeItems.map((item, i) => {
+            const ingEnBase = ingredients.find(ing => ing.name === item.name);
+            const actualCost = ingEnBase ? (ingEnBase.price / ingEnBase.qty) * item.net : 0;
+            tCost += actualCost; tWeight += parseFloat(item.net);
+            return `<tr><td><strong>${item.name}</strong></td><td>${item.net}kg</td><td>$${actualCost.toFixed(2)}</td><td>${item.gross}kg</td>
+            <td><div style="display:flex; gap:5px;"><button onclick="editRecipeItem(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="14"></i></button>
+            <button onclick="currentRecipeItems.splice(${i},1); renderRecipeTable()" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="x" size="14"></i></button></div></td></tr>`;
+        }).join('');
+        document.getElementById('recipe-cost-summary').style.display = currentRecipeItems.length ? 'flex' : 'none';
+        document.getElementById('total-batch-cost').innerText = `$${tCost.toFixed(2)}`;
+        document.getElementById('total-batch-weight').innerText = `${tWeight.toFixed(3)} kg`;
+        document.getElementById('cost-per-kg').innerText = `$${(tCost / (tWeight || 1)).toFixed(2)}`;
+        lucide.createIcons();
+    }
+
+    function editRecipeItem(i) {
+        const item = currentRecipeItems[i];
+        selectedIng = ingredients.find(ing => ing.name === item.name);
+        document.getElementById('search-ing').value = item.name;
+        document.getElementById('use-qty').value = item.net;
+        currentRecipeItems.splice(i, 1);
+        renderRecipeTable();
+    }
+
+    function saveFullRecipe() {
+        const name = document.getElementById('recipe-name').value;
+        if(!name || currentRecipeItems.length === 0) return alert("Faltan datos o ingredientes");
+        const totalWeight = currentRecipeItems.reduce((sum, i) => sum + parseFloat(i.net), 0);
+        
+        if (editingRecipeId) {
+            const index = savedRecipes.findIndex(r => r.id === editingRecipeId);
+            if (index !== -1) {
+                savedRecipes[index] = { id: editingRecipeId, name: name, items: [...currentRecipeItems], baseWeight: totalWeight };
+                alert("Receta actualizada con éxito.");
+            }
+            editingRecipeId = null;
+        } else {
+            savedRecipes.push({ id: Date.now(), name: name, items: [...currentRecipeItems], baseWeight: totalWeight });
+            alert("Nueva receta guardada.");
+        }
+        localStorage.setItem('recetas', JSON.stringify(savedRecipes));
+        currentRecipeItems = [];
+        document.getElementById('recipe-name').value = '';
+        renderRecipeTable();
+        renderSavedRecipes();
+        showSection('sec-archivo', document.querySelectorAll('.tab-btn')[2]);
+    }
+
+    function renderSavedRecipes() {
+        const container = document.getElementById('saved-recipes-container');
+        const query = document.getElementById('search-archive').value.toLowerCase();
+        const filtered = savedRecipes.filter(r => r.name.toLowerCase().includes(query));
+        
+        container.innerHTML = filtered.map((rec) => {
+            let actualCostTotal = 0;
+            rec.items.forEach(it => {
+                const ing = ingredients.find(i => i.name === it.name);
+                if (ing) actualCostTotal += (ing.price / ing.qty) * it.net;
+            });
+            const pKg = actualCostTotal / rec.baseWeight;
+            const realIndex = savedRecipes.indexOf(rec);
+
+            return `
+                <div class="recipe-card-saved">
+                    <div>
+                        <strong>${rec.name}</strong><br>
+                        <small style="color:var(--success); font-weight:700;">$${pKg.toFixed(2)}/kg</small> 
+                        <small> - ${rec.baseWeight.toFixed(3)}kg</small>
+                    </div>
+                    <div style="display:flex; gap:5px">
+                        <button onclick="scaleRecipe(${realIndex})" class="btn btn-icon" style="color:var(--accent)"><i data-lucide="calculator" size="18"></i></button>
+                        <button onclick="loadRecipeToEdit(${realIndex})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="18"></i></button>
+                        <button onclick="deleteRecipe(${realIndex})" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="trash-2" size="18"></i></button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        lucide.createIcons();
+    }
+
+    function loadRecipeToEdit(index) {
+        const rec = savedRecipes[index];
+        document.getElementById('recipe-name').value = rec.name;
+        currentRecipeItems = JSON.parse(JSON.stringify(rec.items));
+        editingRecipeId = rec.id;
+        renderRecipeTable();
+        showSection('sec-recetario', document.querySelectorAll('.tab-btn')[1]);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function filterArchive() { renderSavedRecipes(); }
+    function deleteRecipe(i) { if(confirm("¿Eliminar receta?")) { savedRecipes.splice(i,1); localStorage.setItem('recetas', JSON.stringify(savedRecipes)); renderSavedRecipes(); } }
+
+    function scaleRecipe(index) {
+        activeRecipeToScale = savedRecipes[index];
+        document.getElementById('modal-title').innerText = `Escalar: ${activeRecipeToScale.name}`;
+        document.getElementById('modal-escalar').style.display = 'flex';
+        document.getElementById('scale-results').style.display = 'none';
+        document.getElementById('select-scale-ing').innerHTML = activeRecipeToScale.items.map(it => `<option value="${it.name}">${it.name}</option>`).join('');
+    }
+
+    function toggleScaleInputs() {
+        const m = document.getElementById('scale-method').value;
+        document.getElementById('div-scale-total').style.display = m === 'total' ? 'block' : 'none';
+        document.getElementById('div-scale-ing').style.display = m === 'ingrediente' ? 'block' : 'none';
+    }
+
+    function calculateScale() {
+        const m = document.getElementById('scale-method').value;
+        let factor = 1;
+        if(m === 'total') {
+            const target = parseFloat(document.getElementById('input-scale-total').value);
+            if(!target) return alert("Indica peso total");
+            factor = target / activeRecipeToScale.baseWeight;
+        } else {
+            const name = document.getElementById('select-scale-ing').value;
+            const val = parseFloat(document.getElementById('input-scale-ing-val').value);
+            if(!val) return alert("Indica peso");
+            const it = activeRecipeToScale.items.find(i => i.name === name);
+            factor = val / parseFloat(it.net);
+        }
+        scaledData = activeRecipeToScale.items.map(it => ({ name: it.name, net: (it.net * factor).toFixed(3), gross: (it.gross * factor).toFixed(3) }));
+        document.getElementById('scale-results-list').innerHTML = `<strong>Factor: x${factor.toFixed(2)}</strong><br>` + scaledData.map(it => `• ${it.name}: ${it.net}kg`).join('<br>');
+        document.getElementById('scale-results').style.display = 'block';
+    }
+
+    function openReadingMode() {
+        const modal = document.getElementById('read-modal-main');
+        let currentRecipeCostBase = 0;
+        activeRecipeToScale.items.forEach(it => {
+            const ing = ingredients.find(i => i.name === it.name);
+            if(ing) currentRecipeCostBase += (ing.price / ing.qty) * it.net;
+        });
+
+        const tNet = scaledData.reduce((s, i) => s + parseFloat(i.net), 0);
+        const factor = tNet / activeRecipeToScale.baseWeight;
+        const totalCost = currentRecipeCostBase * factor;
+        const pKg = totalCost / tNet;
+
+        modal.innerHTML = `
+            <div class="reading-header-sticky">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0;">${activeRecipeToScale.name}</h2>
+                    <button onclick="closeReadingMode()" class="btn btn-primary" style="padding:8px 15px;">Cerrar</button>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                <div style="text-align:center;"><small style="color:#64748b; font-weight:700; font-size:0.65rem;">CANTIDAD</small><div style="font-size:1.1rem; font-weight:800;">${tNet.toFixed(3)}kg</div></div>
+                <div style="text-align:center; border-left:1px solid #e2e8f0; border-right:1px solid #e2e8f0;"><small style="color:#64748b; font-weight:700; font-size:0.65rem;">COSTO ACTUAL</small><div style="font-size:1.1rem; font-weight:800; color:var(--success);">$${totalCost.toLocaleString('es-AR',{minimumFractionDigits:2})}</div></div>
+                <div style="text-align:center;"><small style="color:#64748b; font-weight:700; font-size:0.65rem;">COSTO X KG</small><div style="font-size:1.1rem; font-weight:800; color:var(--accent);">$${pKg.toLocaleString('es-AR',{minimumFractionDigits:2})}</div></div>
+            </div>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr style="border-bottom:2px solid var(--primary-dark); color:#64748b; font-size:0.75rem;"><th style="text-align:left; padding:10px 5px;">INGREDIENTE</th><th style="text-align:center; padding:10px 5px;">PESO NETO</th><th style="text-align:right; padding:10px 5px;">BRUTO</th></tr></thead>
+                <tbody>
+                    ${scaledData.map(it => `
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:15px 5px; font-weight:700; color:var(--primary-dark);">${it.name}</td>
+                            <td style="padding:15px 5px; text-align:center;"><span style="background:#eff6ff; color:#1e40af; padding:4px 8px; border-radius:6px; font-weight:800; font-family:monospace; font-size:1.1rem;">${it.net}</span></td>
+                            <td style="padding:15px 5px; text-align:right; color:#94a3b8; font-family:monospace; font-size:0.9rem;">${it.gross}</td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+            <p style="text-align:center; color:#94a3b8; font-size:0.8rem; margin-top:20px;">Precios sincronizados automáticamente con tu base de insumos.</p>
+        `;
+        document.getElementById('modal-lectura').style.display = 'flex';
+    }
+
+    function closeReadingMode() { document.getElementById('modal-lectura').style.display = 'none'; }
+    function closeScaleModal() { document.getElementById('modal-escalar').style.display = 'none'; }
+
+    function exportData() {
+        const blob = new Blob([JSON.stringify({ ingredientes: ingredients, recetas: savedRecipes })], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `costapp_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+    }
+
+    function importData(e) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const data = JSON.parse(ev.target.result);
+            if(confirm("¿Restaurar respaldo? Se perderán los datos actuales.")) {
+                ingredients = data.ingredientes || []; savedRecipes = data.recetas || [];
+                localStorage.setItem('ingredientes', JSON.stringify(ingredients)); localStorage.setItem('recetas', JSON.stringify(savedRecipes));
+                location.reload();
+            }
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+</script>
+</body>
+</html>
