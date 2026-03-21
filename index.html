@@ -110,14 +110,22 @@
             gap: 10px;
         }
 
-        .search-results {
-            position: absolute; width: 100%; background: white;
-            border: 1px solid var(--border); border-radius: 8px;
-            z-index: 100; max-height: 200px; overflow-y: auto; display: none;
-            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        /* Nuevos Estilos para Tarjetas de Ingredientes */
+        .ing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 5px;
         }
-        .search-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
-        .search-item:hover { background: #f0f7ff; color: var(--accent); }
+        .ing-card-select {
+            background: white; border: 1px solid var(--border); padding: 12px; 
+            border-radius: 10px; text-align: center; cursor: pointer; transition: 0.2s;
+            font-weight: 600; font-size: 0.85rem; display: flex; flex-direction: column; align-items: center; gap: 5px;
+        }
+        .ing-card-select:hover { border-color: var(--accent); background: #eff6ff; }
 
         .table-container {
             width: 100%; overflow-x: auto; margin-top: 20px;
@@ -140,7 +148,8 @@
             padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
         }
 
-        #modal-escalar, #modal-lectura {
+        /* Estilo general para Modales */
+        .modal-overlay {
             display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
             background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:15px;
         }
@@ -157,25 +166,10 @@
         }
 
         .reading-mode-content {
-            background: white;
-            width: 100%;
-            height: 100vh;
-            max-width: 100%;
-            overflow-y: auto;
-            padding: 20px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
+            background: white; width: 100%; height: 100vh; max-width: 100%; overflow-y: auto; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;
         }
-
         .reading-header-sticky {
-            position: sticky;
-            top: 0;
-            background: white;
-            padding-bottom: 10px;
-            z-index: 10;
-            border-bottom: 2px solid var(--primary-dark);
-            margin-bottom: 15px;
+            position: sticky; top: 0; background: white; padding-bottom: 10px; z-index: 10; border-bottom: 2px solid var(--primary-dark); margin-bottom: 15px;
         }
 
         @media (max-width: 800px) { 
@@ -212,10 +206,10 @@
                     <input type="text" id="ing-name" placeholder="Ej: Harina 0000">
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div class="form-group"><label>Precio Compra ($)</label><input type="number" id="ing-price"></div>
-                    <div class="form-group"><label>Cantidad (Kg/G)</label><input type="number" id="ing-qty"></div>
+                    <div class="form-group"><label>Precio Compra ($)</label><input type="number" id="ing-price" inputmode="decimal"></div>
+                    <div class="form-group"><label>Cantidad (Kg/G)</label><input type="number" id="ing-qty" inputmode="decimal"></div>
                 </div>
-                <div class="form-group"><label>Merma (%)</label><input type="number" id="ing-waste" value="0"></div>
+                <div class="form-group"><label>Merma (%)</label><input type="number" id="ing-waste" value="0" inputmode="decimal"></div>
                 <button class="btn btn-primary" id="btn-save-ing" style="width:100%" onclick="saveIngredient()">
                     <i data-lucide="save"></i> Guardar Ingrediente
                 </button>
@@ -232,26 +226,13 @@
     <div class="app-card">
         <header><h2>2. Nueva Receta</h2></header>
         <div class="panel">
+            
             <div class="form-group">
-                <label>Nombre de la Receta</label>
-                <input type="text" id="recipe-name" placeholder="Ej: Pan Casero">
+                <label>Buscar Ingrediente</label>
+                <input type="text" id="search-ing-cards" oninput="renderIngCards()" placeholder="Filtra para encontrar rápido...">
             </div>
-            <div class="grid-layout">
-                <div class="form-group">
-                    <label>Buscar Ingrediente</label>
-                    <input type="text" id="search-ing" oninput="searchIngredient()" placeholder="Escribe para buscar...">
-                    <div id="search-results" class="search-results"></div>
-                </div>
-                <div style="display: flex; align-items: flex-end; gap: 10px;">
-                    <div style="flex: 1;">
-                        <label>Peso a usar (Neto)</label>
-                        <input type="number" id="use-qty" placeholder="0.000">
-                    </div>
-                    <button class="btn btn-primary" onclick="addIngToRecipe()" style="height: 45px;">
-                        <i data-lucide="plus"></i>
-                    </button>
-                </div>
-            </div>
+            <div id="ing-cards-container" class="ing-grid"></div>
+
             <div class="table-container">
                 <table class="excel-table">
                     <thead>
@@ -273,7 +254,7 @@
                 <div><small>Costo por KG</small><br><strong id="cost-per-kg" style="color:var(--accent)">$0.00</strong></div>
             </div>
 
-            <button class="btn btn-success" onclick="saveFullRecipe()">
+            <button class="btn btn-success" onclick="openSaveModal()">
                 <i data-lucide="check-circle"></i> GUARDAR RECETA FINAL
             </button>
         </div>
@@ -311,11 +292,11 @@
     </div>
 </div>
 
-<div id="modal-escalar">
+<div id="modal-escalar" class="modal-overlay">
     <div class="app-card" style="width:100%; max-width:500px;">
         <header>
             <h2 id="modal-title">Escalar Receta</h2>
-            <button onclick="closeScaleModal()" class="btn" style="margin-left:auto; background:none; color:var(--danger)"><i data-lucide="x"></i></button>
+            <button onclick="closeModal('modal-escalar')" class="btn" style="margin-left:auto; background:none; color:var(--danger)"><i data-lucide="x"></i></button>
         </header>
         <div class="panel">
             <div class="form-group">
@@ -327,13 +308,13 @@
             </div>
             <div id="div-scale-total" class="form-group">
                 <label>¿Cuántos KG totales quieres producir?</label>
-                <input type="number" id="input-scale-total" placeholder="Ej: 5.000">
+                <input type="number" id="input-scale-total" placeholder="Ej: 5.000" inputmode="decimal">
             </div>
             <div id="div-scale-ing" class="form-group" style="display:none;">
                 <label>Selecciona Ingrediente</label>
                 <select id="select-scale-ing"></select>
                 <label>Cantidad que tienes (KG Netos)</label>
-                <input type="number" id="input-scale-ing-val" placeholder="Ej: 0.500">
+                <input type="number" id="input-scale-ing-val" placeholder="Ej: 0.500" inputmode="decimal">
             </div>
             <button class="btn btn-primary" style="width:100%" onclick="calculateScale()">Calcular</button>
             
@@ -347,8 +328,35 @@
     </div>
 </div>
 
-<div id="modal-lectura">
-    <div class="reading-mode-content" id="read-modal-main">
+<div id="modal-lectura" class="modal-overlay">
+    <div class="reading-mode-content" id="read-modal-main"></div>
+</div>
+
+<div id="modal-peso" class="modal-overlay">
+    <div class="app-card" style="width:100%; max-width:400px; margin: auto;">
+        <header><h2 id="modal-ing-name-title">Ingrediente</h2></header>
+        <div class="panel">
+            <div class="form-group">
+                <label>Peso a usar (Neto)</label>
+                <input type="number" id="input-modal-peso" placeholder="0.000" inputmode="decimal" onkeypress="if(event.key === 'Enter') confirmAddIng()">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="confirmAddIng()">Agregar</button>
+            <button class="btn" style="width:100%; margin-top:10px; background:#f1f5f9; color:var(--danger)" onclick="closeModal('modal-peso')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-save-name" class="modal-overlay">
+    <div class="app-card" style="width:100%; max-width:400px; margin: auto;">
+        <header><h2>Guardar Receta</h2></header>
+        <div class="panel">
+            <div class="form-group">
+                <label>Nombre de la Receta</label>
+                <input type="text" id="input-recipe-final-name" placeholder="Ej: Pan Casero" onkeypress="if(event.key === 'Enter') saveFullRecipe()">
+            </div>
+            <button class="btn btn-success" style="width:100%" onclick="saveFullRecipe()">Guardar</button>
+            <button class="btn" style="width:100%; margin-top:10px; background:#f1f5f9; color:var(--danger)" onclick="closeModal('modal-save-name')">Cancelar</button>
+        </div>
     </div>
 </div>
 
@@ -363,7 +371,7 @@
     let activeRecipeToScale = null;
     let scaledData = null;
 
-    window.onload = () => { renderIngList(); renderSavedRecipes(); };
+    window.onload = () => { renderIngList(); renderIngCards(); renderSavedRecipes(); };
 
     function showSection(sectionId, btn) {
         document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
@@ -371,6 +379,7 @@
         document.getElementById(sectionId).classList.add('active');
         btn.classList.add('active');
         if(sectionId === 'sec-archivo') renderSavedRecipes();
+        if(sectionId === 'sec-recetario') renderIngCards();
     }
 
     // --- LOGICA INGREDIENTES ---
@@ -384,22 +393,27 @@
         if (editIndexIng === -1) ingredients.push(data);
         else { ingredients[editIndexIng] = data; editIndexIng = -1; document.getElementById('btn-save-ing').innerHTML = '<i data-lucide="save"></i> Guardar Ingrediente'; }
         localStorage.setItem('ingredientes', JSON.stringify(ingredients));
-        clearIngForm(); renderIngList(); renderSavedRecipes(); 
+        clearIngForm(); renderIngList(); renderIngCards(); renderSavedRecipes(); 
     }
 
-    function renderIngList() {
-        const list = document.getElementById('ingredient-list');
-        list.innerHTML = ingredients.map((ing, i) => `
-            <div class="list-item">
-                <div><strong>${ing.name}</strong><br><small>$${ing.price} x ${ing.qty} unit.</small></div>
-                <div style="display: flex; gap: 5px;">
-                    <button onclick="editIngredient(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="16"></i></button>
-                    <button onclick="deleteIngredient(${i})" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="trash-2" size="16"></i></button>
-                </div>
+        function renderIngCards() {
+        const container = document.getElementById('ing-cards-container');
+        const query = document.getElementById('search-ing-cards').value.toLowerCase();
+        const filtered = ingredients.filter(ing => ing.name.toLowerCase().includes(query));
+        
+        container.innerHTML = filtered.map(ing => {
+            let partes = ing.name.split(" ");
+            let emoji = partes.length > 1 ? partes[0] : "";
+            let nombre = partes.length > 1 ? partes.slice(1).join(" ") : ing.name;
+
+            return `
+            <div class="ing-card-select" onclick="openWeightModal('${ing.name}')">
+                <span style="font-size: 2rem; margin-bottom: 5px;">${emoji}</span>
+                <span style="font-weight: 700;">${nombre}</span>
             </div>
-        `).join('');
-        lucide.createIcons();
-    }
+            `;
+        }).join('');
+    }clearIngForm()
 
     function editIngredient(i) {
         const ing = ingredients[i];
@@ -411,44 +425,55 @@
         document.getElementById('btn-save-ing').innerHTML = 'Actualizar Insumo';
     }
 
-    function deleteIngredient(i) { if(confirm("¿Eliminar?")) { ingredients.splice(i,1); localStorage.setItem('ingredientes', JSON.stringify(ingredients)); renderIngList(); renderSavedRecipes(); } }
+    function deleteIngredient(i) { if(confirm("¿Eliminar?")) { ingredients.splice(i,1); localStorage.setItem('ingredientes', JSON.stringify(ingredients)); renderIngList(); renderIngCards(); renderSavedRecipes(); } }
     function clearIngForm() { document.getElementById('ing-name').value=''; document.getElementById('ing-price').value=''; document.getElementById('ing-qty').value=''; document.getElementById('ing-waste').value='0'; }
 
-    // --- LOGICA RECETARIO ---
-    function searchIngredient() {
-        const query = document.getElementById('search-ing').value.toLowerCase();
-        const resultsDiv = document.getElementById('search-results');
-        if(query.length < 1) { resultsDiv.style.display = 'none'; return; }
+        function renderIngCards() {
+        const container = document.getElementById('ing-cards-container');
+        const query = document.getElementById('search-ing-cards').value.toLowerCase();
         const filtered = ingredients.filter(ing => ing.name.toLowerCase().includes(query));
-        resultsDiv.innerHTML = filtered.map(ing => `<div class="search-item" onclick="selectIng('${ing.name}')">${ing.name}</div>`).join('');
-        resultsDiv.style.display = filtered.length ? 'block' : 'none';
-    }
-
-    function selectIng(name) {
-        selectedIng = ingredients.find(ing => ing.name === name);
-        document.getElementById('search-ing').value = name;
-        document.getElementById('search-results').style.display = 'none';
-        document.getElementById('use-qty').focus();
-    }
-
-    function addIngToRecipe() {
-        const useQty = parseFloat(document.getElementById('use-qty').value);
-        if(!selectedIng || !useQty) return alert("Selecciona ingrediente y peso");
         
-        // CORRECCIÓN: El costo real debe basarse en el peso BRUTO (lo que se paga)
+        container.innerHTML = filtered.map(ing => {
+            // Buscamos el emoji en el texto
+            const emojiMatch = ing.name.match(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g);
+            const emoji = emojiMatch ? emojiMatch[0] : "📦"; // Si no hay emoji, pone una caja por defecto
+            const nombreLimpio = ing.name.replace(emoji, '').trim();
+
+            return `
+            <div class="ing-card-select" onclick="openWeightModal('${ing.name}')">
+                <span style="font-size: 2.2rem; line-height: 1;">${emoji}</span>
+                <span style="font-weight: 700; color: var(--primary-dark);">${nombreLimpio}</span>
+            </div>
+            `;
+        }).join('');
+    }
+
+
+    function openWeightModal(name) {
+        selectedIng = ingredients.find(ing => ing.name === name);
+        document.getElementById('modal-ing-name-title').innerText = name;
+        document.getElementById('input-modal-peso').value = '';
+        document.getElementById('modal-peso').style.display = 'flex';
+        setTimeout(() => document.getElementById('input-modal-peso').focus(), 100);
+    }
+
+    function confirmAddIng() {
+        const useQty = parseFloat(document.getElementById('input-modal-peso').value);
+        if(!selectedIng || !useQty) return alert("Indica el peso a usar");
+        
         const gross = useQty / (1 - (selectedIng.waste / 100));
-        const cost = (selectedIng.price / selectedIng.qty) * gross;
         
         currentRecipeItems.push({ 
             name: selectedIng.name, 
             net: useQty, 
             gross: gross.toFixed(3),
-            basePriceAtCreation: (selectedIng.price / selectedIng.qty) // Guardamos precio unitario
+            basePriceAtCreation: (selectedIng.price / selectedIng.qty)
         });
         
         renderRecipeTable();
-        document.getElementById('search-ing').value = ''; 
-        document.getElementById('use-qty').value = ''; 
+        closeModal('modal-peso');
+        document.getElementById('search-ing-cards').value = '';
+        renderIngCards();
         selectedIng = null;
     }
 
@@ -457,7 +482,6 @@
         let tCost = 0, tWeight = 0;
         tbody.innerHTML = currentRecipeItems.map((item, i) => {
             const ingEnBase = ingredients.find(ing => ing.name === item.name);
-            // Sincronización: Siempre usa el precio actual de la base de datos
             const actualUnitPrice = ingEnBase ? (ingEnBase.price / ingEnBase.qty) : item.basePriceAtCreation;
             const actualCost = actualUnitPrice * parseFloat(item.gross);
             
@@ -465,7 +489,7 @@
             tWeight += parseFloat(item.net);
             
             return `<tr><td><strong>${item.name}</strong></td><td>${item.net}kg</td><td>$${actualCost.toFixed(2)}</td><td>${item.gross}kg</td>
-            <td><div style="display:flex; gap:5px;"><button onclick="editRecipeItem(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="14"></i></button>
+            <td><div style="display:flex; gap:5px; justify-content:center;"><button onclick="editRecipeItem(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="14"></i></button>
             <button onclick="currentRecipeItems.splice(${i},1); renderRecipeTable()" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="x" size="14"></i></button></div></td></tr>`;
         }).join('');
         
@@ -478,37 +502,48 @@
 
     function editRecipeItem(i) {
         const item = currentRecipeItems[i];
-        selectedIng = ingredients.find(ing => ing.name === item.name);
-        document.getElementById('search-ing').value = item.name;
-        document.getElementById('use-qty').value = item.net;
+        openWeightModal(item.name);
+        document.getElementById('input-modal-peso').value = item.net;
         currentRecipeItems.splice(i, 1);
         renderRecipeTable();
     }
 
+    // --- GUARDADO DE RECETA ---
+    function openSaveModal() {
+        if (currentRecipeItems.length === 0) return alert("Faltan ingredientes");
+        document.getElementById('modal-save-name').style.display = 'flex';
+        const inputName = document.getElementById('input-recipe-final-name');
+        
+        if (editingRecipeId) {
+            const rec = savedRecipes.find(r => r.id === editingRecipeId);
+            if(rec) inputName.value = rec.name;
+        } else {
+            inputName.value = '';
+        }
+        setTimeout(() => inputName.focus(), 100);
+    }
+
     function saveFullRecipe() {
-        const name = document.getElementById('recipe-name').value;
-        if(!name || currentRecipeItems.length === 0) return alert("Faltan datos o ingredientes");
+        const name = document.getElementById('input-recipe-final-name').value;
+        if(!name || currentRecipeItems.length === 0) return alert("Faltan datos");
         const totalWeight = currentRecipeItems.reduce((sum, i) => sum + parseFloat(i.net), 0);
         
         if (editingRecipeId) {
             const index = savedRecipes.findIndex(r => r.id === editingRecipeId);
-            if (index !== -1) {
-                savedRecipes[index] = { id: editingRecipeId, name: name, items: [...currentRecipeItems], baseWeight: totalWeight };
-                alert("Receta actualizada con éxito.");
-            }
+            if (index !== -1) savedRecipes[index] = { id: editingRecipeId, name: name, items: [...currentRecipeItems], baseWeight: totalWeight };
             editingRecipeId = null;
         } else {
             savedRecipes.push({ id: Date.now(), name: name, items: [...currentRecipeItems], baseWeight: totalWeight });
-            alert("Nueva receta guardada.");
         }
         localStorage.setItem('recetas', JSON.stringify(savedRecipes));
         currentRecipeItems = [];
-        document.getElementById('recipe-name').value = '';
+        closeModal('modal-save-name');
         renderRecipeTable();
         renderSavedRecipes();
         showSection('sec-archivo', document.querySelectorAll('.tab-btn')[2]);
     }
 
+    // --- LOGICA ARCHIVO, ESCALADO Y LECTURA ---
     function renderSavedRecipes() {
         const container = document.getElementById('saved-recipes-container');
         const query = document.getElementById('search-archive').value.toLowerCase();
@@ -518,10 +553,7 @@
             let actualCostTotal = 0;
             rec.items.forEach(it => {
                 const ing = ingredients.find(i => i.name === it.name);
-                if (ing) {
-                    // Cálculo sincronizado con merma: Precio actual * Peso Bruto
-                    actualCostTotal += (ing.price / ing.qty) * parseFloat(it.gross);
-                }
+                if (ing) actualCostTotal += (ing.price / ing.qty) * parseFloat(it.gross);
             });
             const pKg = actualCostTotal / rec.baseWeight;
             const realIndex = savedRecipes.indexOf(rec);
@@ -546,7 +578,6 @@
 
     function loadRecipeToEdit(index) {
         const rec = savedRecipes[index];
-        document.getElementById('recipe-name').value = rec.name;
         currentRecipeItems = JSON.parse(JSON.stringify(rec.items));
         editingRecipeId = rec.id;
         renderRecipeTable();
@@ -607,7 +638,7 @@
             <div class="reading-header-sticky">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h2 style="margin:0;">${activeRecipeToScale.name}</h2>
-                    <button onclick="closeReadingMode()" class="btn btn-primary" style="padding:8px 15px;">Cerrar</button>
+                    <button onclick="closeModal('modal-lectura')" class="btn btn-primary" style="padding:8px 15px;">Cerrar</button>
                 </div>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
@@ -626,13 +657,11 @@
                         </tr>`).join('')}
                 </tbody>
             </table>
-            <p style="text-align:center; color:#94a3b8; font-size:0.8rem; margin-top:20px;">Precios sincronizados automáticamente con tu base de insumos (incluye merma).</p>
         `;
         document.getElementById('modal-lectura').style.display = 'flex';
     }
 
-    function closeReadingMode() { document.getElementById('modal-lectura').style.display = 'none'; }
-    function closeScaleModal() { document.getElementById('modal-escalar').style.display = 'none'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
     function exportData() {
         const blob = new Blob([JSON.stringify({ ingredientes: ingredients, recetas: savedRecipes })], { type: 'application/json' });
