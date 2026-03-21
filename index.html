@@ -395,6 +395,28 @@
         localStorage.setItem('ingredientes', JSON.stringify(ingredients));
         clearIngForm(); renderIngList(); renderIngCards(); renderSavedRecipes(); 
     }
+        function renderIngList() {
+        const list = document.getElementById('ingredient-list');
+        if (!list) return;
+        list.innerHTML = ingredients.map((ing, i) => `
+            <div class="list-item">
+                <div>
+                    <strong>${ing.name}</strong><br>
+                    <small>$${ing.price} x ${ing.qty}kg (M: ${ing.waste}%)</small>
+                </div>
+                <div style="display:flex; gap:5px">
+                    <button onclick="editIngredient(${i})" class="btn btn-icon" style="color:var(--warning)">
+                        <i data-lucide="pencil" size="16"></i>
+                    </button>
+                    <button onclick="deleteIngredient(${i})" class="btn btn-icon" style="color:var(--danger)">
+                        <i data-lucide="trash-2" size="16"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+
 
         function renderIngCards() {
         const container = document.getElementById('ing-cards-container');
