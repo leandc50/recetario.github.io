@@ -383,18 +383,34 @@
     }
 
     // --- LOGICA INGREDIENTES ---
-    function saveIngredient() {
+        function saveIngredient() {
         const name = document.getElementById('ing-name').value;
         const price = parseFloat(document.getElementById('ing-price').value);
         const qty = parseFloat(document.getElementById('ing-qty').value);
         const waste = parseFloat(document.getElementById('ing-waste').value) || 0;
+        
         if(!name || isNaN(price) || isNaN(qty)) return alert("Completa los datos");
+        
         const data = { name, price, qty, waste };
-        if (editIndexIng === -1) ingredients.push(data);
-        else { ingredients[editIndexIng] = data; editIndexIng = -1; document.getElementById('btn-save-ing').innerHTML = '<i data-lucide="save"></i> Guardar Ingrediente'; }
+        
+        if (editIndexIng === -1) {
+            ingredients.push(data);
+        } else {
+            ingredients[editIndexIng] = data;
+            editIndexIng = -1;
+            document.getElementById('btn-save-ing').innerHTML = '<i data-lucide="save"></i> Guardar Ingrediente';
+        }
+        
         localStorage.setItem('ingredientes', JSON.stringify(ingredients));
-        clearIngForm(); renderIngList(); renderIngCards(); renderSavedRecipes(); 
+        
+        // ACTUALIZACIÓN DE TODAS LAS VISTAS
+        clearIngForm();       // Limpia el formulario de carga
+        renderIngList();      // Actualiza la lista en la pestaña 1
+        renderIngCards();     // Actualiza los emojis en la pestaña 2
+        renderRecipeTable();  // Recalcula la tabla de la receta que estés armando
+        renderSavedRecipes(); // Recalcula los costos del Archivo (pestaña 3)
     }
+
         function renderIngList() {
         const list = document.getElementById('ingredient-list');
         if (!list) return;
