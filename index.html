@@ -434,10 +434,22 @@
     function addIngToRecipe() {
         const useQty = parseFloat(document.getElementById('use-qty').value);
         if(!selectedIng || !useQty) return alert("Selecciona ingrediente y peso");
+        
+        // CORRECCIÓN: El costo real debe basarse en el peso BRUTO (lo que se paga)
         const gross = useQty / (1 - (selectedIng.waste / 100));
-        currentRecipeItems.push({ name: selectedIng.name, net: useQty, gross: gross.toFixed(3) });
+        const cost = (selectedIng.price / selectedIng.qty) * gross;
+        
+        currentRecipeItems.push({ 
+            name: selectedIng.name, 
+            net: useQty, 
+            gross: gross.toFixed(3),
+            basePriceAtCreation: (selectedIng.price / selectedIng.qty) // Guardamos precio unitario
+        });
+        
         renderRecipeTable();
-        document.getElementById('search-ing').value = ''; document.getElementById('use-qty').value = ''; selectedIng = null;
+        document.getElementById('search-ing').value = ''; 
+        document.getElementById('use-qty').value = ''; 
+        selectedIng = null;
     }
 
     function renderRecipeTable() {
@@ -445,12 +457,18 @@
         let tCost = 0, tWeight = 0;
         tbody.innerHTML = currentRecipeItems.map((item, i) => {
             const ingEnBase = ingredients.find(ing => ing.name === item.name);
-            const actualCost = ingEnBase ? (ingEnBase.price / ingEnBase.qty) * item.net : 0;
-            tCost += actualCost; tWeight += parseFloat(item.net);
+            // Sincronización: Siempre usa el precio actual de la base de datos
+            const actualUnitPrice = ingEnBase ? (ingEnBase.price / ingEnBase.qty) : item.basePriceAtCreation;
+            const actualCost = actualUnitPrice * parseFloat(item.gross);
+            
+            tCost += actualCost; 
+            tWeight += parseFloat(item.net);
+            
             return `<tr><td><strong>${item.name}</strong></td><td>${item.net}kg</td><td>$${actualCost.toFixed(2)}</td><td>${item.gross}kg</td>
             <td><div style="display:flex; gap:5px;"><button onclick="editRecipeItem(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="14"></i></button>
             <button onclick="currentRecipeItems.splice(${i},1); renderRecipeTable()" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="x" size="14"></i></button></div></td></tr>`;
         }).join('');
+        
         document.getElementById('recipe-cost-summary').style.display = currentRecipeItems.length ? 'flex' : 'none';
         document.getElementById('total-batch-cost').innerText = `$${tCost.toFixed(2)}`;
         document.getElementById('total-batch-weight').innerText = `${tWeight.toFixed(3)} kg`;
@@ -500,7 +518,10 @@
             let actualCostTotal = 0;
             rec.items.forEach(it => {
                 const ing = ingredients.find(i => i.name === it.name);
-                if (ing) actualCostTotal += (ing.price / ing.qty) * it.net;
+                if (ing) {
+                    // Cálculo sincronizado con merma: Precio actual * Peso Bruto
+                    actualCostTotal += (ing.price / ing.qty) * parseFloat(it.gross);
+                }
             });
             const pKg = actualCostTotal / rec.baseWeight;
             const realIndex = savedRecipes.indexOf(rec);
@@ -574,7 +595,7 @@
         let currentRecipeCostBase = 0;
         activeRecipeToScale.items.forEach(it => {
             const ing = ingredients.find(i => i.name === it.name);
-            if(ing) currentRecipeCostBase += (ing.price / ing.qty) * it.net;
+            if(ing) currentRecipeCostBase += (ing.price / ing.qty) * parseFloat(it.gross);
         });
 
         const tNet = scaledData.reduce((s, i) => s + parseFloat(i.net), 0);
@@ -605,7 +626,7 @@
                         </tr>`).join('')}
                 </tbody>
             </table>
-            <p style="text-align:center; color:#94a3b8; font-size:0.8rem; margin-top:20px;">Precios sincronizados automáticamente con tu base de insumos.</p>
+            <p style="text-align:center; color:#94a3b8; font-size:0.8rem; margin-top:20px;">Precios sincronizados automáticamente con tu base de insumos (incluye merma).</p>
         `;
         document.getElementById('modal-lectura').style.display = 'flex';
     }
