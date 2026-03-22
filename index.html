@@ -516,27 +516,48 @@
     }
 
     function renderRecipeTable() {
-        const tbody = document.getElementById('recipe-table-body');
-        let tCost = 0, tWeight = 0;
-        tbody.innerHTML = currentRecipeItems.map((item, i) => {
-            const ingEnBase = ingredients.find(ing => ing.name === item.name);
-            const actualUnitPrice = ingEnBase ? (ingEnBase.price / ingEnBase.qty) : item.basePriceAtCreation;
-            const actualCost = actualUnitPrice * parseFloat(item.gross);
-            
-            tCost += actualCost; 
-            tWeight += parseFloat(item.net);
-            
-            return `<tr><td><strong>${item.name}</strong></td><td>${item.net}kg</td><td>$${actualCost.toFixed(2)}</td><td>${item.gross}kg</td>
-            <td><div style="display:flex; gap:5px; justify-content:center;"><button onclick="editRecipeItem(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="14"></i></button>
-            <button onclick="currentRecipeItems.splice(${i},1); renderRecipeTable()" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="x" size="14"></i></button></div></td></tr>`;
-        }).join('');
+    const tbody = document.getElementById('recipe-table-body');
+    let tCost = 0,
+        tWeight = 0;
+    
+    tbody.innerHTML = currentRecipeItems.map((item, i) => {
+        // BUSQUEDA EN TIEMPO REAL: Trae los datos más nuevos de la base de insumos
+        const ingEnBase = ingredients.find(ing => ing.name === item.name);
         
-        document.getElementById('recipe-cost-summary').style.display = currentRecipeItems.length ? 'flex' : 'none';
-        document.getElementById('total-batch-cost').innerText = `$${tCost.toFixed(2)}`;
-        document.getElementById('total-batch-weight').innerText = `${tWeight.toFixed(3)} kg`;
-        document.getElementById('cost-per-kg').innerText = `$${(tCost / (tWeight || 1)).toFixed(2)}`;
-        lucide.createIcons();
-    }
+        // Si el ingrediente existe, usamos sus datos actuales (Precio, Cantidad, Merma)
+        // Si no existe (fue borrado), usamos los datos que tenía al crearse la receta
+        const precioActual = ingEnBase ? ingEnBase.price : item.basePriceAtCreation * item.baseQtyAtCreation;
+        const cantidadBaseActual = ingEnBase ? ingEnBase.qty : 1;
+        const mermaActual = ingEnBase ? ingEnBase.waste : 0;
+        
+        // Recálculo de Bruto y Costo con datos frescos
+        const nuevoBruto = item.net / (1 - (mermaActual / 100));
+        const costoActualizado = (precioActual / cantidadBaseActual) * nuevoBruto;
+        
+        tCost += costoActualizado;
+        tWeight += parseFloat(item.net);
+        
+        return `<tr>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.net}kg</td>
+            <td>$${costoActualizado.toFixed(2)}</td>
+            <td>${nuevoBruto.toFixed(3)}kg</td>
+            <td>
+                <div style="display:flex; gap:5px; justify-content:center;">
+                    <button onclick="editRecipeItem(${i})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="14"></i></button>
+                    <button onclick="currentRecipeItems.splice(${i},1); renderRecipeTable()" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="x" size="14"></i></button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+    
+    // Actualización de totales
+    document.getElementById('recipe-cost-summary').style.display = currentRecipeItems.length ? 'flex' : 'none';
+    document.getElementById('total-batch-cost').innerText = `$${tCost.toFixed(2)}`;
+    document.getElementById('total-batch-weight').innerText = `${tWeight.toFixed(3)} kg`;
+    document.getElementById('cost-per-kg').innerText = `$${(tCost / (tWeight || 1)).toFixed(2)}`;
+    lucide.createIcons();
+}
 
     function editRecipeItem(i) {
         const item = currentRecipeItems[i];
@@ -567,12 +588,18 @@
         const totalWeight = currentRecipeItems.reduce((sum, i) => sum + parseFloat(i.net), 0);
         
         if (editingRecipeId) {
-            const index = savedRecipes.findIndex(r => r.id === editingRecipeId);
-            if (index !== -1) savedRecipes[index] = { id: editingRecipeId, name: name, items: [...currentRecipeItems], baseWeight: totalWeight };
-            editingRecipeId = null;
-        } else {
-            savedRecipes.push({ id: Date.now(), name: name, items: [...currentRecipeItems], baseWeight: totalWeight });
-        }
+    const index = savedRecipes.findIndex(r => r.id === editingRecipeId);
+    if (index !== -1) {
+        savedRecipes[index] = { 
+            ...savedRecipes[index], // Mantiene el ID original
+            name: name, 
+            items: [...currentRecipeItems], 
+            baseWeight: totalWeight,
+            lastUpdated: Date.now() // Actualiza la fecha a hoy
+        };
+    }
+    editingRecipeId = null;
+}
         localStorage.setItem('recetas', JSON.stringify(savedRecipes));
         currentRecipeItems = [];
         closeModal('modal-save-name');
@@ -583,36 +610,56 @@
 
     // --- LOGICA ARCHIVO, ESCALADO Y LECTURA ---
     function renderSavedRecipes() {
-        const container = document.getElementById('saved-recipes-container');
-        const query = document.getElementById('search-archive').value.toLowerCase();
-        const filtered = savedRecipes.filter(r => r.name.toLowerCase().includes(query));
-        
-        container.innerHTML = filtered.map((rec) => {
-            let actualCostTotal = 0;
-            rec.items.forEach(it => {
-                const ing = ingredients.find(i => i.name === it.name);
-                if (ing) actualCostTotal += (ing.price / ing.qty) * parseFloat(it.gross);
-            });
-            const pKg = actualCostTotal / rec.baseWeight;
-            const realIndex = savedRecipes.indexOf(rec);
+    const container = document.getElementById('saved-recipes-container');
+    const query = document.getElementById('search-archive').value.toLowerCase();
+    const filtered = savedRecipes.filter(r => r.name.toLowerCase().includes(query));
+    
+    const SIETE_DIAS = 7 * 24 * 60 * 60 * 1000; // Milisegundos en una semana
+    const ahora = Date.now();
 
-            return `
-                <div class="recipe-card-saved">
-                    <div>
-                        <strong>${rec.name}</strong><br>
-                        <small style="color:var(--success); font-weight:700;">$${pKg.toFixed(2)}/kg</small> 
-                        <small> - ${rec.baseWeight.toFixed(3)}kg</small>
+    container.innerHTML = filtered.map((rec) => {
+        let actualCostTotal = 0;
+        let tieneHuerfanos = false;
+        
+        rec.items.forEach(it => {
+            const ing = ingredients.find(i => i.name === it.name);
+            if (ing) {
+                actualCostTotal += (ing.price / ing.qty) * parseFloat(it.gross);
+            } else {
+                // Si no está en la base, es un insumo huérfano
+                tieneHuerfanos = true;
+                actualCostTotal += (it.basePriceAtCreation || 0) * parseFloat(it.gross);
+            }
+        });
+
+        const pKg = actualCostTotal / (rec.baseWeight || 1);
+        const fechaReceta = rec.lastUpdated || 0;
+        const recetaVencida = (ahora - fechaReceta) > SIETE_DIAS;
+        const realIndex = savedRecipes.indexOf(rec);
+
+        return `
+            <div class="recipe-card-saved" style="${recetaVencida ? 'border-left: 5px solid var(--danger);' : ''}">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <strong>${rec.name}</strong>
+                        ${tieneHuerfanos ? '<span title="Ingrediente no encontrado en Insumos" style="cursor:help;">⚠️</span>' : ''}
+                        ${recetaVencida ? '<span title="Precio no actualizado hace más de 7 días" style="cursor:help;">⏳⚠️</span>' : ''}
                     </div>
-                    <div style="display:flex; gap:5px">
-                        <button onclick="scaleRecipe(${realIndex})" class="btn btn-icon" style="color:var(--accent)"><i data-lucide="calculator" size="18"></i></button>
-                        <button onclick="loadRecipeToEdit(${realIndex})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="18"></i></button>
-                        <button onclick="deleteRecipe(${realIndex})" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="trash-2" size="18"></i></button>
-                    </div>
+                    <small style="color:var(--success); font-weight:700;">$${pKg.toFixed(2)}/kg</small> 
+                    <small> - ${rec.baseWeight.toFixed(3)}kg</small>
+                    ${recetaVencida ? `<br><small style="color:var(--danger); font-size:0.7rem;">Revisar costos (hace +7 días)</small>` : ''}
                 </div>
-            `;
-        }).join('');
-        lucide.createIcons();
-    }
+                <div style="display:flex; gap:5px">
+                    <button onclick="scaleRecipe(${realIndex})" class="btn btn-icon" style="color:var(--accent)"><i data-lucide="calculator" size="18"></i></button>
+                    <button onclick="loadRecipeToEdit(${realIndex})" class="btn btn-icon" style="color:var(--warning)"><i data-lucide="pencil" size="18"></i></button>
+                    <button onclick="deleteRecipe(${realIndex})" class="btn btn-icon" style="color:var(--danger)"><i data-lucide="trash-2" size="18"></i></button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    lucide.createIcons();
+}
+
 
     function loadRecipeToEdit(index) {
         const rec = savedRecipes[index];
@@ -660,44 +707,86 @@
     }
 
     function openReadingMode() {
-        const modal = document.getElementById('read-modal-main');
-        let currentRecipeCostBase = 0;
-        activeRecipeToScale.items.forEach(it => {
-            const ing = ingredients.find(i => i.name === it.name);
-            if(ing) currentRecipeCostBase += (ing.price / ing.qty) * parseFloat(it.gross);
-        });
+    const modalContainer = document.getElementById('read-modal-main');
+    if (!activeRecipeToScale || !scaledData) return alert("Error: No hay datos para mostrar");
 
-        const tNet = scaledData.reduce((s, i) => s + parseFloat(i.net), 0);
-        const factor = tNet / activeRecipeToScale.baseWeight;
-        const totalCost = currentRecipeCostBase * factor;
-        const pKg = totalCost / tNet;
+    // 1. Cálculo de costos dinámicos (Sincronización en tiempo real)
+    let currentRecipeCostBase = 0;
+    activeRecipeToScale.items.forEach(it => {
+        const ingEnBase = ingredients.find(i => i.name === it.name);
+        // Si el ingrediente existe en la pestaña 1, usa ese precio. Si no, usa el de respaldo.
+        const precioUnitario = ingEnBase ? (ingEnBase.price / ingEnBase.qty) : (it.basePriceAtCreation || 0);
+        currentRecipeCostBase += precioUnitario * parseFloat(it.gross);
+    });
 
-        modal.innerHTML = `
-            <div class="reading-header-sticky">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin:0;">${activeRecipeToScale.name}</h2>
-                    <button onclick="closeModal('modal-lectura')" class="btn btn-primary" style="padding:8px 15px;">Cerrar</button>
+    const tNet = scaledData.reduce((s, i) => s + parseFloat(i.net), 0);
+    const factor = tNet / (activeRecipeToScale.baseWeight || 1);
+    const totalCost = currentRecipeCostBase * factor;
+    const pKg = totalCost / (tNet || 1);
+
+    // 2. Construcción de la interfaz moderna
+    modalContainer.innerHTML = `
+        <div style="display: flex; flex-direction: column; height: 100vh; max-height: 100vh; overflow: hidden; background: #f8fafc;">
+            
+            <div style="padding: 20px; background: white; border-bottom: 2px solid var(--primary-dark); box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 10;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; font-size: 1.4rem; color: var(--primary-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activeRecipeToScale.name}</h2>
+                    <button onclick="closeModal('modal-lectura')" class="btn btn-primary" style="border-radius: 50px; padding: 10px 20px; min-width: 100px;">Cerrar</button>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <div style="background: #f1f5f9; padding: 12px 5px; border-radius: 12px; text-align: center;">
+                        <small style="display: block; color: #64748b; font-size: 0.6rem; font-weight: 800; text-transform: uppercase;">Rinde</small>
+                        <span style="font-size: 1rem; font-weight: 800;">${tNet.toFixed(3)}kg</span>
+                    </div>
+                    <div style="background: #ecfdf5; padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid #a7f3d0;">
+                        <small style="display: block; color: #059669; font-size: 0.6rem; font-weight: 800; text-transform: uppercase;">Costo Total</small>
+                        <span style="font-size: 1rem; font-weight: 800; color: var(--success);">$${totalCost.toFixed(2)}</span>
+                    </div>
+                    <div style="background: #eff6ff; padding: 12px 5px; border-radius: 12px; text-align: center; border: 1px solid #bfdbfe;">
+                        <small style="display: block; color: #2563eb; font-size: 0.6rem; font-weight: 800; text-transform: uppercase;">Costo x kg</small>
+                        <span style="font-size: 1rem; font-weight: 800; color: var(--accent);">$${pKg.toFixed(2)}</span>
+                    </div>
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
-                <div style="text-align:center;"><small style="color:#64748b; font-weight:700; font-size:0.65rem;">CANTIDAD</small><div style="font-size:1.1rem; font-weight:800;">${tNet.toFixed(3)}kg</div></div>
-                <div style="text-align:center; border-left:1px solid #e2e8f0; border-right:1px solid #e2e8f0;"><small style="color:#64748b; font-weight:700; font-size:0.65rem;">COSTO ACTUAL</small><div style="font-size:1.1rem; font-weight:800; color:var(--success);">$${totalCost.toLocaleString('es-AR',{minimumFractionDigits:2})}</div></div>
-                <div style="text-align:center;"><small style="color:#64748b; font-weight:700; font-size:0.65rem;">COSTO X KG</small><div style="font-size:1.1rem; font-weight:800; color:var(--accent);">$${pKg.toLocaleString('es-AR',{minimumFractionDigits:2})}</div></div>
+
+            <div style="flex: 1; overflow-y: auto; padding: 15px; -webkit-overflow-scrolling: touch;">
+                <div style="display: flex; flex-direction: column; gap: 12px; max-width: 600px; margin: 0 auto;">
+                    ${scaledData.map(it => {
+                        // Lógica para detectar emojis y limpiar el nombre
+                        const emojiMatch = it.name.match(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g);
+                        const emoji = emojiMatch ? emojiMatch[0] : "🥣";
+                        const nombreLimpio = it.name.replace(emoji, '').trim();
+
+                        return `
+                        <div style="background: white; padding: 16px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                            <div style="font-size: 2rem; background: #f8fafc; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid #f1f5f9;">
+                                ${emoji}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 800; font-size: 1.1rem; color: var(--primary-dark); margin-bottom: 6px; line-height: 1.2;">${nombreLimpio}</div>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div>
+                                        <small style="display: block; color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 2px;">NETO (USAR)</small>
+                                        <span style="color: #2563eb; font-weight: 800; font-family: 'Courier New', monospace; font-size: 1.2rem;">${it.net} kg</span>
+                                    </div>
+                                    <div style="width: 1px; height: 25px; background: #e2e8f0;"></div>
+                                    <div>
+                                        <small style="display: block; color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 2px;">BRUTO (COMPRA)</small>
+                                        <span style="color: #64748b; font-weight: 700; font-family: 'Courier New', monospace; font-size: 1rem;">${it.gross} kg</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    <div style="height: 30px;"></div>
+                </div>
             </div>
-            <table style="width:100%; border-collapse:collapse;">
-                <thead><tr style="border-bottom:2px solid var(--primary-dark); color:#64748b; font-size:0.75rem;"><th style="text-align:left; padding:10px 5px;">INGREDIENTE</th><th style="text-align:center; padding:10px 5px;">PESO NETO</th><th style="text-align:right; padding:10px 5px;">BRUTO</th></tr></thead>
-                <tbody>
-                    ${scaledData.map(it => `
-                        <tr style="border-bottom:1px solid #f1f5f9;">
-                            <td style="padding:15px 5px; font-weight:700; color:var(--primary-dark);">${it.name}</td>
-                            <td style="padding:15px 5px; text-align:center;"><span style="background:#eff6ff; color:#1e40af; padding:4px 8px; border-radius:6px; font-weight:800; font-family:monospace; font-size:1.1rem;">${it.net}</span></td>
-                            <td style="padding:15px 5px; text-align:right; color:#94a3b8; font-family:monospace; font-size:0.9rem;">${it.gross}</td>
-                        </tr>`).join('')}
-                </tbody>
-            </table>
-        `;
-        document.getElementById('modal-lectura').style.display = 'flex';
-    }
+        </div>
+    `;
+    document.getElementById('modal-lectura').style.display = 'flex';
+}
+
 
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
