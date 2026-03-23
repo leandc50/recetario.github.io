@@ -293,12 +293,13 @@
 </div>
 
 <div id="modal-escalar" class="modal-overlay">
-    <div class="app-card" style="width:100%; max-width:500px;">
-        <header>
+    <div class="app-card" style="width:100%; max-width:500px; max-height: 90vh; display: flex; flex-direction: column;">
+        <header style="flex-shrink: 0;">
             <h2 id="modal-title">Escalar Receta</h2>
             <button onclick="closeModal('modal-escalar')" class="btn" style="margin-left:auto; background:none; color:var(--danger)"><i data-lucide="x"></i></button>
         </header>
-        <div class="panel">
+        
+        <div class="panel" style="flex: 1; overflow-y: auto; padding: 20px;">
             <div class="form-group">
                 <label>Método de Escalado</label>
                 <select id="scale-method" onchange="toggleScaleInputs()">
@@ -319,14 +320,16 @@
             <button class="btn btn-primary" style="width:100%" onclick="calculateScale()">Calcular</button>
             
             <div id="scale-results" style="margin-top:20px; display:none;">
-                <div id="scale-results-list" style="margin-bottom:15px; font-size:0.9rem;"></div>
-                <button class="btn btn-success" style="width:100%" onclick="openReadingMode()">
+                <div id="scale-results-list" style="margin-bottom:15px; font-size:0.9rem; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid var(--border);"></div>
+                
+                <button class="btn btn-success" style="width:100%; position: sticky; bottom: 0; shadow: 0 -5px 10px rgba(0,0,0,0.1)" onclick="openReadingMode()">
                     <i data-lucide="eye"></i> MODO LECTURA
                 </button>
             </div>
         </div>
     </div>
 </div>
+
 
 <div id="modal-lectura" class="modal-overlay">
     <div class="reading-mode-content" id="read-modal-main"></div>
@@ -688,23 +691,43 @@
     }
 
     function calculateScale() {
-        const m = document.getElementById('scale-method').value;
-        let factor = 1;
-        if(m === 'total') {
-            const target = parseFloat(document.getElementById('input-scale-total').value);
-            if(!target) return alert("Indica peso total");
-            factor = target / activeRecipeToScale.baseWeight;
-        } else {
-            const name = document.getElementById('select-scale-ing').value;
-            const val = parseFloat(document.getElementById('input-scale-ing-val').value);
-            if(!val) return alert("Indica peso");
-            const it = activeRecipeToScale.items.find(i => i.name === name);
-            factor = val / parseFloat(it.net);
-        }
-        scaledData = activeRecipeToScale.items.map(it => ({ name: it.name, net: (it.net * factor).toFixed(3), gross: (it.gross * factor).toFixed(3) }));
-        document.getElementById('scale-results-list').innerHTML = `<strong>Factor: x${factor.toFixed(2)}</strong><br>` + scaledData.map(it => `• ${it.name}: ${it.net}kg`).join('<br>');
-        document.getElementById('scale-results').style.display = 'block';
+    const m = document.getElementById('scale-method').value;
+    let factor = 1;
+    if(m === 'total') {
+        const target = parseFloat(document.getElementById('input-scale-total').value);
+        if(!target) return alert("Indica peso total");
+        factor = target / activeRecipeToScale.baseWeight;
+    } else {
+        const name = document.getElementById('select-scale-ing').value;
+        const val = parseFloat(document.getElementById('input-scale-ing-val').value);
+        if(!val) return alert("Indica peso");
+        const it = activeRecipeToScale.items.find(i => i.name === name);
+        factor = val / parseFloat(it.net);
     }
+    
+    scaledData = activeRecipeToScale.items.map(it => ({ 
+        name: it.name, 
+        net: (it.net * factor).toFixed(3), 
+        gross: (it.gross * factor).toFixed(3) 
+    }));
+
+    // Formateo de lista más profesional para que no se pierda el botón
+    const listaHtml = `
+        <div style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
+            <strong>Factor aplicado: x${factor.toFixed(2)}</strong>
+        </div>
+        ${scaledData.map(it => `
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>${it.name}</span>
+                <span style="font-family:monospace; font-weight:700;">${it.net} kg</span>
+            </div>
+        `).join('')}
+    `;
+    
+    document.getElementById('scale-results-list').innerHTML = listaHtml;
+    document.getElementById('scale-results').style.display = 'block';
+}
+
 
     function openReadingMode() {
     const modalContainer = document.getElementById('read-modal-main');
