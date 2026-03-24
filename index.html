@@ -586,30 +586,44 @@
     }
 
     function saveFullRecipe() {
-        const name = document.getElementById('input-recipe-final-name').value;
-        if(!name || currentRecipeItems.length === 0) return alert("Faltan datos");
-        const totalWeight = currentRecipeItems.reduce((sum, i) => sum + parseFloat(i.net), 0);
-        
-        if (editingRecipeId) {
-    const index = savedRecipes.findIndex(r => r.id === editingRecipeId);
-    if (index !== -1) {
-        savedRecipes[index] = { 
-            ...savedRecipes[index], // Mantiene el ID original
-            name: name, 
-            items: [...currentRecipeItems], 
+    const name = document.getElementById('input-recipe-final-name').value;
+    if(!name || currentRecipeItems.length === 0) return alert("Faltan datos");
+    
+    const totalWeight = currentRecipeItems.reduce((sum, i) => sum + parseFloat(i.net), 0);
+    
+    if (editingRecipeId) {
+        // Modo Edición: Busca y actualiza la receta existente
+        const index = savedRecipes.findIndex(r => r.id === editingRecipeId);
+        if (index !== -1) {
+            savedRecipes[index] = { 
+                ...savedRecipes[index],
+                name: name, 
+                items: [...currentRecipeItems], 
+                baseWeight: totalWeight,
+                lastUpdated: Date.now()
+            };
+        }
+        editingRecipeId = null;
+    } else {
+        // MODO CORREGIDO: Guarda la receta NUEVA
+        const newRecipe = {
+            id: Date.now(), // Crea un ID único basado en el tiempo
+            name: name,
+            items: [...currentRecipeItems],
             baseWeight: totalWeight,
-            lastUpdated: Date.now() // Actualiza la fecha a hoy
+            lastUpdated: Date.now()
         };
+        savedRecipes.push(newRecipe);
     }
-    editingRecipeId = null;
+
+    // Guardar en el almacenamiento del navegador y limpiar
+    localStorage.setItem('recetas', JSON.stringify(savedRecipes));
+    currentRecipeItems = [];
+    closeModal('modal-save-name');
+    renderRecipeTable();
+    renderSavedRecipes(); // Refresca la lista en "Mis Recetas"
+    showSection('sec-archivo', document.querySelectorAll('.tab-btn')[2]);
 }
-        localStorage.setItem('recetas', JSON.stringify(savedRecipes));
-        currentRecipeItems = [];
-        closeModal('modal-save-name');
-        renderRecipeTable();
-        renderSavedRecipes();
-        showSection('sec-archivo', document.querySelectorAll('.tab-btn')[2]);
-    }
 
     // --- LOGICA ARCHIVO, ESCALADO Y LECTURA ---
     function renderSavedRecipes() {
